@@ -1,16 +1,15 @@
-from urllib import urlencode
 from httplib2 import Http
 import json
 import sys
 import base64
 
 
-print "Running Endpoint Tester....\n"
-address = raw_input("Please enter the address of the server you want to access, \n If left blank the connection will be set to 'http://localhost:5000':   ")
+print("Running Endpoint Tester....\n")
+address = input("Please enter the address of the server you want to access, \n If left blank the connection will be set to 'http://localhost:5000':   ")
 if address == '':
 	address = 'http://localhost:5000'
 
-#TEST 1: TRY TO REGISTER A NEW USER 
+#TEST 1: TRY TO REGISTER A NEW USER
 try:
 	h = Http()
 	url = address + '/users'
@@ -21,15 +20,15 @@ try:
  		raise Exception('Received an unsuccessful status code of %s' % resp['status'])
 
 except Exception as err:
-	print "Test 1 FAILED: Could not make a new user"
-	print err.args
+	print("Test 1 FAILED: Could not make a new user")
+	print(err.args)
 	sys.exit()
 else:
-	print "Test 1 PASS: Succesfully made a new user"
+	print("Test 1 PASS: Succesfully made a new user")
 
 #TEST 2: OBTAIN A TOKEN
 try:
-	h = Http() 
+	h = Http()
 	h.add_credentials('Peter','Pan')
 	url = address + '/token'
 	resp, content = h.request(url,'GET' , headers = {"Content-Type" : "application/json"})
@@ -39,13 +38,13 @@ try:
 	if not new_content['token']:
 		raise Exception('No Token Received!')
 	token = new_content['token']
-	print "received token: %s" % token
+	print("received token: %s" % token)
 except Exception as err:
-	print "Test 2 FAILED: Could not exchange user credentials for a token"
-	print err.args
+	print("Test 2 FAILED: Could not exchange user credentials for a token")
+	print(err.args)
 	sys.exit()
 else:
-	print "Test 2 PASS: Succesfully obtained token! "
+	print("Test 2 PASS: Succesfully obtained token! ")
 
 #TEST 3: TRY TO ADD PRODUCS TO DATABASE
 
@@ -58,15 +57,8 @@ try:
 	if resp['status'] != '200':
 		raise Exception('Received an unsuccessful status code of %s' % resp['status'])
 except Exception as err:
-	print "Test 3 FAILED: Could not add new products"
-	print err.args
+	print("Test 3 FAILED: Could not add new products")
+	print(err.args)
 	sys.exit()
 else:
-	print "Test 3 PASS: Succesfully added new products"
-
-
-#TEST 4: TRY ACCESSING ENDPOINT WITH AN INVALID TOKEN
-
-#TEST 5: TRY TO VIEW ALL PRODUCTS IN DATABASE 
-
-#TEST 6: TRY TO VIEW A SPECIFIC CATEGORY OF PRODUCTS
+	print("Test 3 PASS: Succesfully added new products")
