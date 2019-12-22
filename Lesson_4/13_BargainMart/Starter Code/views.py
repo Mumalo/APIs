@@ -1,14 +1,15 @@
 from redis import Redis
 import time
-from functools import update_wrapper
+from functools import wraps
 from flask import request, g
 from flask import Flask, jsonify 
 from models import Base, Item
-
-
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
+import time
+from flask import g, jsonify
+from redis import Redis
+server = Redis()
 
 import json
 
@@ -26,8 +27,62 @@ app = Flask(__name__)
 #ADD RATE LIMITING CODE HERE
 
 
+class RateLimit(object):
+    expiration_window = 10
+
+    def __init__(self, identifier_key, limit, per, send_x_headers):
+        self.reset = int(time.time() // per) * per + per
+        self.key = identifier_key + str(self.reset)
+        self.limit = limit
+        self.per = per
+        self.send_x_headers = send_x_headers
+        pipeline = server.pipeline()
+        pipeline.incr(self.key)
+        pipeline.expireat(self.key, self.reset + self.expiration_window)
+        self.current = min(pipeline.execute()[0], limit)
+
+    remaining = property(lambda self: self.limit - self.current)
+    over_limit = property(lambda self: self.current >= self.limit)
+
+
+def get_view_limit():
+    return getattr(g, '_view_rate_limit', None)
+
+
+def on_over_limit(limit):
+    return jsonify({'data': 'You have reached the rate limit for this resource', 'error': 429}), 429
+
+
+def ratelimit(limit, per=60, send_x_headers = True,
+              over_limit = on_over_limit,
+              address=lambda: request.remote_addr,
+              endpoint=lambda: request.endpoint):
+    def decorator(function):
+        @wraps(function)
+        def limit_respurce(*args, **kwargs):
+            key = f"rate-limited/{address}/{endpoint}"
+            rate_limit = RateLimit(key, limit, per, send_x_headers)
+            g._view_rate_limit = rate_limit
+            if over_limit is not None and rate_limit.over_limit:
+                return over_limit
+            return function(*args, **kwargs)
+        return limit_respurce
+    return decorator
+
+
+@app.after_request
+def inject_x_headers(response):
+    limit = get_view_limit()
+    if limit and limit.send_x_headers:
+        h = response.headers
+        h.add('X-RateLimit-Remaining', str(limit.remaining))
+        h.add('X-RateLimit-Limit', str(limit.limit))
+        h.add('X-RateLimit-Reset', str(limit.reset))
+    return response
+
 
 @app.route('/catalog')
+@ratelimit(limit=60, per=60)
 def getCatalog():
     items = session.query(Item).all()
 
